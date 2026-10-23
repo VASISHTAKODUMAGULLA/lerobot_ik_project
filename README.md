@@ -1,4 +1,4 @@
-# IRM-project
+# Lerobot Inverse Kinematics
 
 
 ## Team members
