@@ -1,9 +1,10 @@
 import numpy as np
 
 
-# 1=Pan, 2=Lift, 3=Elbow, 4=Wrist Flex, 5=Wrist Roll, (6=Gripper)
+# 1=Pan, 2=Lift, 3=Elbow, 4=Wrist Flex, 5=Wrist Roll, (6=Gripper, not part of the FK chain)
 # Every joint turns about an axis w that passes through a point p.
-# Both are in the world frame with the robot at q = 0 (arm stretched out, see schematic).
+# Both are in the world frame (= base frame) with the robot at q = 0.
+# At q = 0 the arm is an L-shape: upper arm points up, forearm points forward (+x).
 POE_PARAMS = [
     # w ,           p (x, y, z)
     ((0, 0, -1),  (0.0388353, 0.0,        0.0624)),    # joint 1 (Pan)         = base + (0.0388353, 0, 0.0624)
@@ -12,11 +13,14 @@ POE_PARAMS = [
     ((0, 1, 0),   (0.2321345, -0.0182778, 0.23437)),   # joint 4 (Wrist Flex)  = joint 3 + (0.1349, 0, 0.0052)
     ((-1, 0, 0),  (0.2932345, -0.0001778, 0.23437)),   # joint 5 (Wrist Roll)  = joint 4 + (0.0611, 0.0181, 0)
 ]
-# The small y offsets (0.0183, 0.0181) and the 0.0052 are in the URDF but not drawn in the schematic
 
-# Tool at q = 0: same axes as joint 5 (x = up, y = left, z = back), tool is 0.0075 down and 0.095 forward of joint 5
-TOOL = np.array([-0.0075, 0.0, -0.095])      # tool position in the joint 5 frame
-TILT = 0.0486795                             # small wrist roll offset from the URDF (2.8 deg), not in the schematic
+
+# End-effector point in the joint 5 frame (same axes as the gripper body: x = up, y = left, z = back).
+# Zero = the gripper body origin, which is what MuJoCo reports as d.xpos[gripper].
+# For a real tool tip use [-0.0075, 0.0, -0.095] (0.0075 down, 0.095 forward) or your caliper-measured value.
+TOOL = np.array([0.0, 0.0, 0.0])
+TILT = 0.0486795                             # small wrist roll offset from the URDF (2.8 deg)
+
 
 R_HOME = np.array([
     [0,             0,            -1],
@@ -24,32 +28,10 @@ R_HOME = np.array([
     [np.cos(TILT),  np.sin(TILT),  0],
 ])
 
+
 M = np.eye(4)
 M[0:3, 0:3] = R_HOME
 M[0:3, 3] = np.array(POE_PARAMS[4][1]) + R_HOME @ TOOL
-
-
-
-def Rx(theta):
-    c = np.cos(theta)
-    s = np.sin(theta)
-    return np.array([[1, 0, 0],
-                     [0, c, -s],
-                     [0, s, c]])
-
-def Ry(theta):
-    c = np.cos(theta)
-    s = np.sin(theta)
-    return np.array([[c, 0, s],
-                     [0, 1, 0],
-                     [-s, 0, c]])
-
-def Rz(theta):
-    c = np.cos(theta)
-    s = np.sin(theta)
-    return np.array([[c, -s, 0],
-                     [s, c, 0],
-                     [0, 0, 1]])
 
 
 
@@ -72,9 +54,8 @@ def poe_matrix(w, p, theta):
 
 
 def forward_kinematics(q):
+    # q in radians, MuJoCo joint convention. zip stops after the 5 joints, so a 6th (gripper) value is ignored.
     T = np.eye(4)
-
-    # zip stops after the 5 joints, so the gripper angle in q is ignored
     for (w, p), joint_angle in zip(POE_PARAMS, q):
         T = T @ poe_matrix(w, p, joint_angle)
 
