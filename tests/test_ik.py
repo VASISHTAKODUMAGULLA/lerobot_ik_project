@@ -9,7 +9,7 @@ SRC_PATH = os.path.join(PROJECT_ROOT, "src")
 if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 
-from forward_kinematics import forward_kinematics
+from forward_kinematics import forward_kinematics, T_BASE_0
 from inverse_kinematics import inverse_kinematics
 
 
@@ -74,8 +74,11 @@ print("-" * 105)
 
 for name, target in targets.items():
 
+    # pan axis is 38.8 mm forward of the MuJoCo base origin
+    target_0 = target - T_BASE_0[:3, 3]
+
     # inverse kinematics
-    q = inverse_kinematics(target, q)
+    q = inverse_kinematics(target_0, q)
 
     # numerical forward kinematics
     pos_fk, _ = forward_kinematics(
@@ -93,9 +96,9 @@ for name, target in targets.items():
         in_mujoco_frame=True
     )
 
-    print("Default FK:", pos_default)
+    print("default FK:", pos_default)
     print("MuJoCo FK:", pos_mujoco)
-    print("Difference:", pos_mujoco - pos_default)
+    print("difference:", pos_mujoco - pos_default)
 
     # MuJoCo simulation
     set_joint_angles(q)
